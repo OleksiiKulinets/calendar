@@ -1,4 +1,4 @@
-from app.db.models.main import (
+from app.db.models.models import (
     User,
     GoogleAccount,
     Calendar,

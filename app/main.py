@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 
 from telegram.ext import (Application, CommandHandler, MessageHandler, filters,)
 
-from app.handlers.start import start
-from app.middlewares.logger import log_update
+from app.bot.handlers.start import start
+from app.bot.middlewares.logger import log_update
 
 load_dotenv()
 
