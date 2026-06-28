@@ -8,7 +8,7 @@ from telegram import (
 from telegram.ext import ContextTypes
 
 from app.db.session import SessionLocal
-from app.services.user.service import UserService
+from app.services.users.service import UserService
 
 
 async def start(

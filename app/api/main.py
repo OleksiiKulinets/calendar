@@ -119,7 +119,7 @@ async def google_auth_callback(request: Request):
     # 3. SYNC CALENDARS (NO DELETE!)
     with SessionLocal() as session:
 
-        google_calendars = await GoogleCalendarService.fetch_calendars(session, user_id)
+        google_calendars = await GoogleCalendarService.fetch_calendars(session, telegram_user_id)
 
         for cal in google_calendars:
 
