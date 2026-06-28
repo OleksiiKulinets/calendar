@@ -26,11 +26,17 @@ class UserRepository:
         telegram_user_id: int,
         telegram_chat_id: int,
         name: str,
+        timezone: str,
+        default_city: str,
+        default_country: str,
     ):
         user = User(
             telegram_user_id=telegram_user_id,
             telegram_chat_id=telegram_chat_id,
             name=name,
+            timezone=timezone,
+            default_city=default_city,
+            default_country=default_country,
         )
 
         session.add(user)

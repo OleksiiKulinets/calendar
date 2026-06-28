@@ -1,3 +1,5 @@
+import os
+
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -18,20 +20,25 @@ async def start(
 
     with SessionLocal() as session:
 
-        UserService.create_or_update_user(
+        user = UserService.create_or_update_user(
             session,
             telegram_user_id=telegram_user.id,
             telegram_chat_id=chat.id,
             name=telegram_user.full_name,
+            timezone="Europe/Kyiv",
+            default_city="Kyiv",
+            default_country="Ukraine"
         )
 
         session.commit()
+
+    BASE_URL = os.getenv("BASE_URL")
 
     keyboard = [
         [
             InlineKeyboardButton(
                 text="🔗 Підключити Google Calendar",
-                url="https://stem-occultist-directly.ngrok-free.dev/auth/google/start",
+                url=f"{BASE_URL}/auth/google/start?telegram_user_id={telegram_user.id}",
             )
         ]
     ]
@@ -42,7 +49,8 @@ async def start(
         text=(
             "Привіт 👋\n\n"
             "Я допоможу створювати події у вашому Google Calendar.\n\n"
-            "Для початку необхідно підключити Google Calendar."
+            "Після підключення Google-акаунта ви зможете обрати календар, "
+            "у який бот буде створювати всі події."
         ),
         reply_markup=reply_markup,
     )

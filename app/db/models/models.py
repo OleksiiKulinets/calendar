@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    Column,
     BigInteger,
     String,
     Text,
@@ -11,7 +12,7 @@ from sqlalchemy import (
     Numeric,
     func,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from app.db.base import Base
 from datetime import datetime
 
@@ -27,6 +28,8 @@ class User(Base):
     timezone: Mapped[str | None] = mapped_column(String(100))
     default_city: Mapped[str | None] = mapped_column(String(255))
     default_country: Mapped[str | None] = mapped_column(String(255))
+
+    selected_calendar_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     default_duration_minutes: Mapped[int] = mapped_column(Integer, default=60)
     training_data_consent: Mapped[bool] = mapped_column(Boolean, default=False)

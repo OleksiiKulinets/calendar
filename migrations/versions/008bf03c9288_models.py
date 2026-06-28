@@ -1,8 +1,8 @@
 """models
 
-Revision ID: aace2c35d562
+Revision ID: 008bf03c9288
 Revises: 
-Create Date: 2026-06-25 14:55:38.159108
+Create Date: 2026-06-28 16:33:17.893434
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'aace2c35d562'
+revision: str = '008bf03c9288'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -39,6 +39,7 @@ def upgrade() -> None:
     sa.Column('timezone', sa.String(length=100), nullable=True),
     sa.Column('default_city', sa.String(length=255), nullable=True),
     sa.Column('default_country', sa.String(length=255), nullable=True),
+    sa.Column('selected_calendar_id', sa.BigInteger(), nullable=True),
     sa.Column('default_duration_minutes', sa.Integer(), nullable=False),
     sa.Column('training_data_consent', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
