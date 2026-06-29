@@ -51,7 +51,9 @@ async def google_auth_start(telegram_user_id: int):
         "prompt": "consent",
     }
 
-    url = GOOGLE_AUTH_URL + "?" + "&".join(f"{k}={v}" for k, v in params.items())
+    url = GOOGLE_AUTH_URL + "?" + "&".join(
+        f"{k}={v}" for k, v in params.items()
+    )
 
     return RedirectResponse(url)
 
@@ -70,8 +72,11 @@ async def google_auth_callback(request: Request):
 
     telegram_user_id = int(state)
 
+    # -------------------------
     # 1. GET TOKENS
+    # -------------------------
     async with httpx.AsyncClient() as client:
+
         token_response = await client.post(
             GOOGLE_TOKEN_URL,
             data={
@@ -86,27 +91,38 @@ async def google_auth_callback(request: Request):
         tokens = token_response.json()
 
         access_token = tokens.get("access_token")
+
         if not access_token:
             return {"error": "No access token"}
 
-        userinfo = (await client.get(
-            GOOGLE_USERINFO_URL,
-            headers={"Authorization": f"Bearer {access_token}"}
-        )).json()
+        userinfo = (
+            await client.get(
+                GOOGLE_USERINFO_URL,
+                headers={
+                    "Authorization": f"Bearer {access_token}"
+                }
+            )
+        ).json()
 
+    # -------------------------
     # 2. SAVE USER + ACCOUNT
+    # -------------------------
     with SessionLocal() as session:
 
         user = session.execute(
-            select(User).where(User.telegram_user_id == telegram_user_id)
+            select(User).where(
+                User.telegram_user_id == telegram_user_id
+            )
         ).scalar_one_or_none()
 
         if not user:
             return {"error": "User not found"}
 
+        user_id = user.id
+
         GoogleAccountService.create_or_update(
             session,
-            telegram_user_id=user.telegram_user_id,
+            user_id=user_id,
             google_email=userinfo["email"],
             access_token=access_token,
             refresh_token=tokens.get("refresh_token"),
@@ -114,12 +130,16 @@ async def google_auth_callback(request: Request):
         )
 
         session.commit()
-        user_id = user.id
 
-    # 3. SYNC CALENDARS (NO DELETE!)
+    # -------------------------
+    # 3. SYNC CALENDARS
+    # -------------------------
     with SessionLocal() as session:
 
-        google_calendars = await GoogleCalendarService.fetch_calendars(session, telegram_user_id)
+        google_calendars = await GoogleCalendarService.fetch_calendars(
+            session,
+            user_id
+        )
 
         for cal in google_calendars:
 
@@ -131,20 +151,26 @@ async def google_auth_callback(request: Request):
             ).scalar_one_or_none()
 
             if not exists:
-                session.add(Calendar(
-                    user_id=user_id,
-                    google_calendar_id=cal["id"],
-                    name=cal.get("summary", "Unnamed"),
-                    is_default=False
-                ))
+                session.add(
+                    Calendar(
+                        user_id=user_id,
+                        google_calendar_id=cal["id"],
+                        name=cal.get("summary", "Unnamed"),
+                        is_default=False
+                    )
+                )
 
         session.commit()
 
         db_calendars = session.execute(
-            select(Calendar).where(Calendar.user_id == user_id)
+            select(Calendar).where(
+                Calendar.user_id == user_id
+            )
         ).scalars().all()
 
+    # -------------------------
     # 4. SEND TELEGRAM KEYBOARD
+    # -------------------------
     keyboard = [
         [
             InlineKeyboardButton(

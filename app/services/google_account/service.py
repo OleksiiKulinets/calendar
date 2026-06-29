@@ -2,7 +2,6 @@ from datetime import datetime, timedelta, UTC
 
 from app.services.crypto.service import CryptoService
 from app.repositories.google_account import GoogleAccountRepository
-from app.repositories.user import UserRepository
 
 
 class GoogleAccountService:
@@ -11,20 +10,12 @@ class GoogleAccountService:
     def create_or_update(
         session,
         *,
-        telegram_user_id: int,
+        user_id: int,
         google_email: str,
         access_token: str,
         refresh_token: str | None,
         expires_in: int,
     ):
-
-        user = UserRepository.get_by_telegram_id(
-            session,
-            telegram_user_id,
-        )
-
-        if not user:
-            raise ValueError("User not found")
 
         expires_at = datetime.now(UTC) + timedelta(
             seconds=expires_in
@@ -32,7 +23,7 @@ class GoogleAccountService:
 
         account = GoogleAccountRepository.get_by_user_id(
             session,
-            user.id,
+            user_id,
         )
 
         if account:
@@ -47,7 +38,6 @@ class GoogleAccountService:
                 account.refresh_token_encrypted = CryptoService.encrypt(
                     refresh_token
                 )
-                
 
             account.token_expires_at = expires_at
 
@@ -55,7 +45,7 @@ class GoogleAccountService:
 
         return GoogleAccountRepository.create(
             session,
-            user_id=user.id,
+            user_id=user_id,
             google_email=google_email,
             access_token=CryptoService.encrypt(access_token),
             refresh_token=(

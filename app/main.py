@@ -14,7 +14,6 @@ from telegram.ext import (
 from app.bot.handlers.start import start
 from app.bot.handlers.calendar import select_calendar
 from app.bot.handlers.message import handle_message
-from app.bot.middlewares.logger import log_update
 
 from app.services.ai.openai_client import OpenAIClient
 
@@ -86,14 +85,6 @@ def main():
             select_calendar,
             pattern="^calendar:"
         )
-    )
-
-    app.add_handler(
-        MessageHandler(
-            filters.ALL,
-            log_update
-        ),
-        group=-1
     )
 
     app.add_handler(

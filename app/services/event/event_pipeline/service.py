@@ -3,13 +3,14 @@ from app.db.models import User, Calendar
 from datetime import datetime, timedelta
 from app.db.session import SessionLocal
 
+
 class EventPipelineService:
 
     def __init__(self, extractor, calendar_service):
         self.extractor = extractor
         self.calendar = calendar_service
 
-    async def process(self, message: str, user_id: int):
+    async def process(self, message: str, telegram_user_id: int):
 
         print("\n[PIPELINE] STEP 1 - EXTRACT")
 
@@ -29,40 +30,46 @@ class EventPipelineService:
 
         print(f"[PIPELINE] END: {end}")
 
-        print("[PIPELINE] STEP 3 - CONFLICT CHECK")
-
-        conflicts = await self.calendar.check_conflicts(
-            user_id,
-            start,
-            end
-        )
-
-        print(f"[PIPELINE] CONFLICTS: {conflicts}")
-
-        print("[PIPELINE] STEP 4 - BUILD PREVIEW")
-
-        preview = {
-            "title": event["title"],
-            "start": start,
-            "end": end,
-            "location": event.get("location_raw"),
-            "format": event.get("event_format"),
-            "conflict": len(conflicts) > 0
-        }
-
         print("[PIPELINE] STEP 5 - CREATE EVENT")
 
         with SessionLocal() as session:
 
             user = session.execute(
-                select(User).where(User.telegram_user_id == user_id)
+                select(User).where(
+                    User.telegram_user_id == telegram_user_id
+                )
             ).scalar_one_or_none()
 
             if not user:
-                raise ValueError(f"User not found in DB: {user_id}")
+                raise ValueError(
+                    f"User not found in DB: {telegram_user_id}"
+                )
+
+            print("[PIPELINE] STEP 3 - CONFLICT CHECK")
+
+            conflicts = await self.calendar.check_conflicts(
+                user.id,
+                start,
+                end
+            )
+
+            print(f"[PIPELINE] CONFLICTS: {conflicts}")
+
+            print("[PIPELINE] STEP 4 - BUILD PREVIEW")
+
+            preview = {
+                "title": event["title"],
+                "start": start,
+                "end": end,
+                "location": event.get("location_raw"),
+                "format": event.get("event_format"),
+                "conflict": len(conflicts) > 0
+            }
 
             calendar = session.execute(
-                select(Calendar).where(Calendar.id == user.selected_calendar_id)
+                select(Calendar).where(
+                    Calendar.id == user.selected_calendar_id
+                )
             ).scalar_one_or_none()
 
             if not calendar:
@@ -70,7 +77,7 @@ class EventPipelineService:
 
             created = await self.calendar.create_event(
                 session,
-                user.telegram_user_id,
+                user.id,
                 {
                     "title": event["title"],
                     "start": start,
