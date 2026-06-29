@@ -3,13 +3,7 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    CallbackQueryHandler,
-    filters,
-)
+from telegram.ext import (Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters)
 
 from app.bot.handlers.start import start
 from app.bot.handlers.calendar import select_calendar
@@ -17,19 +11,14 @@ from app.bot.handlers.message import handle_message
 
 from app.services.ai.openai_client import OpenAIClient
 
-from app.services.event.event_extraction.service import (
-    EventExtractionService,
-)
-
 from app.services.event.event_extraction.prompts import PROMPT
-
-from app.services.event.event_pipeline.service import (
-    EventPipelineService,
-)
-
-from app.services.google_calendar.service import (
-    GoogleCalendarService,
-)
+from app.services.event.event_extraction.service import EventExtractionService
+from app.services.event.event_pipeline.service import EventPipelineService
+from app.services.event.event_creation.service import EventCreationService
+from app.services.google_calendar.service import GoogleCalendarService
+from app.services.input.detector.service import InputDetectorService
+from app.services.input.image.service import ImageService
+from app.services.input.voice.service import VoiceService
 
 load_dotenv()
 
@@ -51,19 +40,19 @@ def main():
     ai_client = OpenAIClient()
     print("✓ OpenAI client")
 
-    extractor = EventExtractionService(
-        ai_client,
-        PROMPT
-    )
+    extractor = EventExtractionService(ai_client, PROMPT)
     print("✓ Event extractor")
 
     calendar_service = GoogleCalendarService()
     print("✓ Calendar service")
 
-    pipeline = EventPipelineService(
-        extractor,
-        calendar_service
-    )
+    voice_service = VoiceService(ai_client)
+    image_service = ImageService(ai_client)
+    detector = InputDetectorService()
+    print("✓ Input detector")
+
+    creator = EventCreationService(calendar_service)
+    pipeline = EventPipelineService(extractor, calendar_service, detector, voice_service, image_service, creator)
     print("✓ Pipeline")
 
     app = Application.builder().token(BOT_TOKEN).build()
@@ -89,7 +78,7 @@ def main():
 
     app.add_handler(
         MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
+            filters.TEXT | filters.VOICE | filters.PHOTO,
             handle_message
         ),
         group=0
