@@ -6,12 +6,17 @@ from app.db.session import SessionLocal
 
 class EventPipelineService:
 
-    def __init__(self, extractor, calendar_service, detector, voice_service, image_service, creator):
+    def __init__(self, extractor, calendar_service, detector, voice_service, image_service, validator, event_format, link, location, confirmation, creator):
         self.extractor = extractor
         self.calendar = calendar_service
         self.detector = detector
         self.voice_service = voice_service
         self.image_service = image_service
+        self.validator = validator
+        self.event_format = event_format
+        self.link = link
+        self.location = location
+        self.confirmation = confirmation
         self.creator = creator
 
     async def process(self, message: str, telegram_user_id: int):
@@ -68,17 +73,18 @@ class EventPipelineService:
         # =========================================================
         print("\n[STEP 5] VALIDATION OF DATE / TIME / DURATION")
 
-        start = self._parse_datetime(event["date"], event["start_time"])
+        validated = self.validator.validate(event)
 
-        if not start:
-            print("❌ Missing date/time → cannot continue pipeline")
+        if not validated["success"]:
+            print(f"❌ Validation failed: {validated['error']}")
+
             return {
-                "error": "missing_datetime",
+                "error": validated["error"],
                 "raw": event
             }
 
-        duration = event.get("duration_minutes") or 60
-        end = start + timedelta(minutes=duration)
+        start = validated["start"]
+        end = validated["end"]
 
         print(f"START: {start}")
         print(f"END: {end}")
@@ -86,17 +92,21 @@ class EventPipelineService:
         # =========================================================
         # 6. FORMAT DETECTION
         # =========================================================
-        print("\n[STEP 6] EVENT FORMAT DETECTION")
-        print(event.get("event_format"))
+        print("\n[STEP 6] FORMAT DETECTION")
+
+        event["event_format"] = self.event_format.detect(event)
+
+        print(event["event_format"])
 
         # =========================================================
-        # 7. LOCATION / LINK PROCESSING
+        # 7. LOCATION / LINK PROCESSING !!!
         # =========================================================
         print("\n[STEP 7] LOCATION / ONLINE LINK HANDLING")
         print(event.get("location_raw"))
+        print(event.get("conference_urls"))
 
         # =========================================================
-        # 8. MISSING DATA CLARIFICATION (FUTURE STEP)
+        # 8. MISSING DATA CLARIFICATION !!!
         # =========================================================
         print("\n[STEP 8] MISSING DATA CHECK (NOT IMPLEMENTED)")
         # TODO: ask user follow-up questions if needed
@@ -118,7 +128,7 @@ class EventPipelineService:
                 )
 
             # =========================================================
-            # 9. CONFLICT CHECK
+            # 9. CONFLICT CHECK !!!
             # =========================================================
             print("\n[STEP 9] CONFLICT CHECK")
 
@@ -131,7 +141,7 @@ class EventPipelineService:
             print(f"CONFLICTS: {conflicts}")
 
             # =========================================================
-            # 10. PREVIEW BUILD
+            # 10. PREVIEW BUILD  !!
             # =========================================================
             print("\n[STEP 10] PREVIEW BUILD")
 
@@ -147,55 +157,52 @@ class EventPipelineService:
             print(preview)
 
             # =========================================================
-            # 11. USER CONFIRMATION (MISSING IN LOGIC)
+            # 11. USER CONFIRMATION (MISSING IN LOGIC) !!! DB updates
             # =========================================================
-            print("\n[STEP 11] USER CONFIRMATION (NOT IMPLEMENTED)")
-            # TODO: send preview to Telegram + wait callback
+            print("\n[STEP 11] USER CONFIRMATION")
 
-            # =========================================================
-            # 12. RECHECK CONFLICTS (AFTER CONFIRMATION)
-            # =========================================================
-            print("\n[STEP 12] RECHECK CONFLICTS (NOT IMPLEMENTED)")
+            confirmation_payload = {
+                "title": event["title"],
+                "start": start,
+                "end": end,
+                "location": event.get("location_raw"),
+                "event_format": event.get("event_format"),
+                "user_id": user.id,
+                "calendar_id": user.selected_calendar_id,
+                "conflicts": len(conflicts) > 0
+            }
 
-            calendar = session.execute(
-                select(Calendar).where(
-                    Calendar.id == user.selected_calendar_id
-                )
-            ).scalar_one_or_none()
-
-            if not calendar:
-                raise ValueError("Selected calendar not found")
-
-            # =========================================================
-            # 13. CREATE EVENT
-            # =========================================================
-            print("\n[STEP 13] CREATE EVENT")
-
-            created = await self.creator.create(
-                session=session,
+            confirmation_id = self.confirmation.create_draft(
                 user_id=user.id,
-                event={
-                    "title": event["title"],
-                    "start": start,
-                    "end": end,
-                    "location_raw": event.get("location_raw"),
-                    "calendar_id": calendar.google_calendar_id
-                },
-                calendar=calendar
+                payload=confirmation_payload
             )
 
+            preview["confirmation_id"] = confirmation_id
+
+            # =========================================================
+            # 12. RECHECK CONFLICTS (AFTER CONFIRMATION) !!!
+            # =========================================================
+            print("\n[STEP 12] RECHECK CONFLICTS (WAITING CONFIRMATION)")
+
+            draft = self.confirmation.get(confirmation_id)
+
+            if not draft:
+                return {"error": "draft_not_found"}
+
+            conflicts = await self.calendar.check_conflicts(
+                user.id,
+                start,
+                end
+            )
+
+            print(f"CONFLICTS: {conflicts}")
+
         print("\n[PIPELINE RESULT]")
-        print(created)
 
         print("\n================ PIPELINE END ================")
 
         return {
             "raw": event,
-            "preview": preview
+            "preview": preview,
+            "status": "pending_confirmation"
         }
-
-    def _parse_datetime(self, date_str, time_str):
-        if not date_str or not time_str:
-            return None
-
-        return datetime.fromisoformat(f"{date_str}T{time_str}:00")

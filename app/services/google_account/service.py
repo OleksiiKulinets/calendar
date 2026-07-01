@@ -1,9 +1,16 @@
+import os
+from dotenv import load_dotenv
 from datetime import datetime, timedelta, UTC
 import httpx
 
 from app.services.crypto.service import CryptoService
 from app.repositories.google_account import GoogleAccountRepository
 
+
+load_dotenv()
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 class GoogleAccountService:
 
@@ -70,8 +77,8 @@ class GoogleAccountService:
             response = await client.post(
                 "https://oauth2.googleapis.com/token",
                 data={
-                    "client_id": "YOUR_GOOGLE_CLIENT_ID",
-                    "client_secret": "YOUR_GOOGLE_CLIENT_SECRET",
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
                     "refresh_token": refresh_token,
                     "grant_type": "refresh_token",
                 },
@@ -114,4 +121,4 @@ class GoogleAccountService:
         account.access_token_encrypted = CryptoService.encrypt(new_access_token)
         account.token_expires_at = expires_at
 
-        return new_access_token
+        session.commit()

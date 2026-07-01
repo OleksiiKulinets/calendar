@@ -18,7 +18,7 @@ class EventExtractionService:
     async def extract(self, message: str):
         raw = await self.ai.extract_event(self.prompt, message)
 
-        print("🔥 RAW GPT RESPONSE:")
+        print("RAW GPT RESPONSE:")
         print(raw)
 
         data = json.loads(raw)

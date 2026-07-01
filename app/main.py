@@ -7,6 +7,7 @@ from telegram.ext import (Application, CommandHandler, MessageHandler, CallbackQ
 
 from app.bot.handlers.start import start
 from app.bot.handlers.calendar import select_calendar
+from app.bot.handlers.confirmation import handle_confirmation
 from app.bot.handlers.message import handle_message
 
 from app.services.ai.openai_client import OpenAIClient
@@ -14,6 +15,11 @@ from app.services.ai.openai_client import OpenAIClient
 from app.services.event.event_extraction.prompts import PROMPT
 from app.services.event.event_extraction.service import EventExtractionService
 from app.services.event.event_pipeline.service import EventPipelineService
+from app.services.event.event_validation.service import EventValidationService
+from app.services.event.event_format.service import EventFormatService
+from app.services.event.event_enrichment.link.service import EventLinkService
+from app.services.event.event_enrichment.location.service import EventLocationService
+from app.services.event.event_confirmation.service import EventConfirmationService
 from app.services.event.event_creation.service import EventCreationService
 from app.services.google_calendar.service import GoogleCalendarService
 from app.services.input.detector.service import InputDetectorService
@@ -51,13 +57,29 @@ def main():
     detector = InputDetectorService()
     print("✓ Input detector")
 
+    validator = EventValidationService()
+    print("✓ Event validator")
+
+    event_format = EventFormatService()
+    print("✓ Event event_format")
+
+    link = EventLinkService()
+    location = EventLocationService()
+    print("✓ Event location and link services")
+
+
+    confirmation = EventConfirmationService()
+    print("✓ Event confirmation service")
+
     creator = EventCreationService(calendar_service)
-    pipeline = EventPipelineService(extractor, calendar_service, detector, voice_service, image_service, creator)
+    print("✓ Event creation service")
+
+    pipeline = EventPipelineService(extractor, calendar_service, detector, voice_service, image_service, validator, event_format, link, location, confirmation, creator)
     print("✓ Pipeline")
 
     app = Application.builder().token(BOT_TOKEN).build()
-
     app.bot_data["pipeline"] = pipeline
+    app.bot_data["confirmation"] = confirmation
 
     print("BOT DATA:")
     print(app.bot_data)
@@ -73,6 +95,13 @@ def main():
         CallbackQueryHandler(
             select_calendar,
             pattern="^calendar:"
+        )
+    )
+
+    app.add_handler(
+        CallbackQueryHandler(
+            handle_confirmation,
+            pattern="^confirmation:"
         )
     )
 
